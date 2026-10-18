@@ -1,6 +1,6 @@
 local MenuUi = {}
 local instanceIndex = 0
-local awesomeSolid = FrameAPI.Fonts.CreateFontAwesome()
+local awesomeSolid = ZentrixAPI.Fonts.CreateFontAwesome()
 
 local function resolveLabel(instance, labelValue, tag)
     local valueType = type(labelValue)
@@ -53,11 +53,11 @@ end
 local function drawTexturedRect(x, y, width, height, bgColor, textColor, text, font, scale, centerText)
     local px, py, pw, ph = normToPixel(x, y, width, height)
     local sw, sh = getRes()
-    FrameAPI.Drawing.DrawRect(px, py, pw, ph, bgColor[1], bgColor[2], bgColor[3], bgColor[4], 0, 1)
+    ZentrixAPI.Drawing.DrawRect(px, py, pw, ph, bgColor[1], bgColor[2], bgColor[3], bgColor[4], 0, 1)
     local fontSize = math.max(10, math.floor(ph * 0.45))
     local textX = centerText and (x * sw) or (px + 8)
     local textY  = py + ph * 0.5 - fontSize * 0.5
-    FrameAPI.Drawing.DrawText(text, textX, textY, fontSize, centerText or false, textColor[1], textColor[2], textColor[3], textColor[4], "Inter", 2)
+    ZentrixAPI.Drawing.DrawText(text, textX, textY, fontSize, centerText or false, textColor[1], textColor[2], textColor[3], textColor[4], "Inter", 2)
 end
 
 local function wrapIndex(index, max)
@@ -173,15 +173,15 @@ local function drawMenuTitle(instance)
     local config = instance.menuConfig
     local sw, sh = getRes()
     local px, py, pw, ph = normToPixel(config.x, config.y, config.width, config.titleHeight)
-    FrameAPI.Drawing.DrawRect(px, py, pw, ph, config.color[1], config.color[2], config.color[3], config.color[4], 0, 1)
+    ZentrixAPI.Drawing.DrawRect(px, py, pw, ph, config.color[1], config.color[2], config.color[3], config.color[4], 0, 1)
     local cx = config.x * sw
     local titleSize = math.max(14, math.floor(ph * 0.55))
     local subSize   = math.max(10, math.floor(ph * 0.30))
     if type(config.subTitle) == "string" and config.subTitle ~= "" then
-        FrameAPI.Drawing.DrawText(config.title, cx, py + ph * 0.5 - titleSize * 0.5 + 16, titleSize, true, 0, 0, 0, 255, "HouseScript", 2)
-        FrameAPI.Drawing.DrawText(config.subTitle, cx, py + ph * 0.60, subSize, true, 230, 230, 230, 255, "Inter", 2)
+        ZentrixAPI.Drawing.DrawText(config.title, cx, py + ph * 0.5 - titleSize * 0.5 + 16, titleSize, true, 0, 0, 0, 255, "HouseScript", 2)
+        ZentrixAPI.Drawing.DrawText(config.subTitle, cx, py + ph * 0.60, subSize, true, 230, 230, 230, 255, "Inter", 2)
     else
-        FrameAPI.Drawing.DrawText(config.title, cx, py + ph * 0.5 - titleSize * 0.5 + 16, titleSize, true, 0, 0, 0, 255, "HouseScript", 2)
+        ZentrixAPI.Drawing.DrawText(config.title, cx, py + ph * 0.5 - titleSize * 0.5 + 16, titleSize, true, 0, 0, 0, 255, "HouseScript", 2)
     end
 end
 
@@ -210,7 +210,7 @@ local function drawMainMenu(instance)
         if type(item) == "table" and item.isCheckbox then
             -- fundo do item
             local px, py, pw, ph = normToPixel(config.x, yPos, config.width, config.itemHeight)
-            FrameAPI.Drawing.DrawRect(px, py, pw, ph, bgColor[1], bgColor[2], bgColor[3], bgColor[4], 0, 1)
+            ZentrixAPI.Drawing.DrawRect(px, py, pw, ph, bgColor[1], bgColor[2], bgColor[3], bgColor[4], 0, 1)
 
             local fontSize = math.max(10, math.floor(ph * 0.45))
             local textY = py + ph * 0.5 - fontSize * 0.5
@@ -219,27 +219,27 @@ local function drawMainMenu(instance)
             local label = resolveLabel(instance, item.name, "checkboxName:" .. tostring(i))
 
             -- texto do nome alinhado à esquerda
-            FrameAPI.Drawing.DrawText(label, px + 8, textY, fontSize, false, textColor[1], textColor[2], textColor[3], textColor[4], "Inter", 2)
+            ZentrixAPI.Drawing.DrawText(label, px + 8, textY, fontSize, false, textColor[1], textColor[2], textColor[3], textColor[4], "Inter", 2)
 
             -- ícone toggle à direita
             local iconSize = math.max(18, math.floor(ph * 0.75))
             local iconMargin = 8
             local icon = isChecked and "\xef\x88\x85" or "\xef\x88\x84"
-            local iconW = FrameAPI.Fonts.GetTextWidthSize(icon, iconSize, awesomeSolid)
+            local iconW = ZentrixAPI.Fonts.GetTextWidthSize(icon, iconSize, awesomeSolid)
             local iconX = px + pw - iconW - iconMargin
             local iconY = py + ph * 0.5 - iconSize * 0.55
 
             if isChecked then
                 -- toggle-on: cor Teal do menu
                 local mc = instance.menuConfig.color
-                FrameAPI.Drawing.DrawText(icon, iconX, iconY, iconSize, false, mc[1], mc[2], mc[3], 255, awesomeSolid, 2)
+                ZentrixAPI.Drawing.DrawText(icon, iconX, iconY, iconSize, false, mc[1], mc[2], mc[3], 255, awesomeSolid, 2)
             else
                 -- toggle-off: cinza semitransparente
-                FrameAPI.Drawing.DrawText(icon, iconX, iconY, iconSize, false, 160, 160, 160, 200, awesomeSolid, 2)
+                ZentrixAPI.Drawing.DrawText(icon, iconX, iconY, iconSize, false, 160, 160, 160, 200, awesomeSolid, 2)
             end
         elseif type(item) == "table" and item.isSlider then
             local px, py, pw, ph = normToPixel(config.x, yPos, config.width, config.itemHeight)
-            FrameAPI.Drawing.DrawRect(px, py, pw, ph, bgColor[1], bgColor[2], bgColor[3], bgColor[4], 0, 1)
+            ZentrixAPI.Drawing.DrawRect(px, py, pw, ph, bgColor[1], bgColor[2], bgColor[3], bgColor[4], 0, 1)
 
             local fontSize  = math.max(10, math.floor(ph * 0.42))
             local label     = resolveLabel(instance, item.name, "sliderName:" .. tostring(i))
@@ -249,13 +249,13 @@ local function drawMainMenu(instance)
             local valStr    = tostring(val)
 
             -- largura do valor para alinhar à direita
-            local valW   = FrameAPI.Fonts.GetTextWidthSize(valStr, fontSize, "Inter")
+            local valW   = ZentrixAPI.Fonts.GetTextWidthSize(valStr, fontSize, "Inter")
             local margin = 8
 
             -- nome à esquerda, valor à direita — centralizados verticalmente no terço superior
             local textY = py + ph * 0.35 - fontSize * 0.5
-            FrameAPI.Drawing.DrawText(label, px + margin, textY, fontSize, false, textColor[1], textColor[2], textColor[3], textColor[4], "Inter", 2)
-            FrameAPI.Drawing.DrawText(valStr, px + pw - valW - margin, textY, fontSize, false, textColor[1], textColor[2], textColor[3], textColor[4], "Inter", 2)
+            ZentrixAPI.Drawing.DrawText(label, px + margin, textY, fontSize, false, textColor[1], textColor[2], textColor[3], textColor[4], "Inter", 2)
+            ZentrixAPI.Drawing.DrawText(valStr, px + pw - valW - margin, textY, fontSize, false, textColor[1], textColor[2], textColor[3], textColor[4], "Inter", 2)
 
             -- barra de progresso na parte inferior do item
             local barH      = math.max(3, math.floor(ph * 0.12))
@@ -267,18 +267,18 @@ local function drawMainMenu(instance)
 
             -- trilha da barra
             local trackA = isSelected and 60 or 50
-            FrameAPI.Drawing.DrawRect(barX, barY, barW, barH, textColor[1], textColor[2], textColor[3], trackA, 2, 2)
+            ZentrixAPI.Drawing.DrawRect(barX, barY, barW, barH, textColor[1], textColor[2], textColor[3], trackA, 2, 2)
 
             -- preenchimento com a cor do menu
             local mc    = instance.menuConfig.color
             local fillW = math.max(barH, math.floor(barW * progress))
-            FrameAPI.Drawing.DrawRect(barX, barY, fillW, barH, mc[1], mc[2], mc[3], 255, 2, 2)
+            ZentrixAPI.Drawing.DrawRect(barX, barY, fillW, barH, mc[1], mc[2], mc[3], 255, 2, 2)
 
             -- bolinha indicadora na ponta do preenchimento
             local dotR = math.max(3, math.floor(barH * 0.9))
             local dotX = barX + fillW
             local dotY = barY + barH * 0.5
-            FrameAPI.Drawing.DrawCircle(dotX, dotY, dotR, 12, dotR, mc[1], mc[2], mc[3], 255, true, 2)
+            ZentrixAPI.Drawing.DrawCircle(dotX, dotY, dotR, 12, dotR, mc[1], mc[2], mc[3], 255, true, 2)
         else
             local text
             if type(item) == "table" then
@@ -356,11 +356,11 @@ local function processControls(instance)
         return
     end
     local now = GetGameTimer()
-    if (FrameAPI.IsKeyPressed(0x26) or FrameAPI.IsKeyPressed(0x59)) and now - instance.lastNavTime > instance.navRepeatMs then
+    if (ZentrixAPI.IsKeyPressed(0x26) or ZentrixAPI.IsKeyPressed(0x59)) and now - instance.lastNavTime > instance.navRepeatMs then
         navigateMenu(instance, "up")
         instance.lastNavTime = now
     end
-    if (FrameAPI.IsKeyPressed(0x28) or FrameAPI.IsKeyPressed(0x48)) and now - instance.lastNavTime > instance.navRepeatMs then
+    if (ZentrixAPI.IsKeyPressed(0x28) or ZentrixAPI.IsKeyPressed(0x48)) and now - instance.lastNavTime > instance.navRepeatMs then
         navigateMenu(instance, "down")
         instance.lastNavTime = now
     end
@@ -368,14 +368,14 @@ local function processControls(instance)
     local items = getContextItems(instance, ctx)
     local currentItem = items[ctx.index]
     if type(currentItem) == "table" then
-        if (FrameAPI.IsKeyPressed(0x27) or FrameAPI.IsKeyPressed(0x4A)) and now - instance.lastHorizontalNavTime > instance.horizontalNavRepeatMs then
+        if (ZentrixAPI.IsKeyPressed(0x27) or ZentrixAPI.IsKeyPressed(0x4A)) and now - instance.lastHorizontalNavTime > instance.horizontalNavRepeatMs then
             if type(currentItem.onRight) == "function" then
                 currentItem.onRight()
                 instance.lastHorizontalNavTime = now
                 playSound(instance, "NAV_UP_DOWN")
             end
         end
-        if (FrameAPI.IsKeyPressed(0x25) or FrameAPI.IsKeyPressed(0x47)) and now - instance.lastHorizontalNavTime > instance.horizontalNavRepeatMs then
+        if (ZentrixAPI.IsKeyPressed(0x25) or ZentrixAPI.IsKeyPressed(0x47)) and now - instance.lastHorizontalNavTime > instance.horizontalNavRepeatMs then
             if type(currentItem.onLeft) == "function" then
                 currentItem.onLeft()
                 instance.lastHorizontalNavTime = now
@@ -383,10 +383,10 @@ local function processControls(instance)
             end
         end
     end
-    if FrameAPI.IsKeyJustPressed(0x0D) then
+    if ZentrixAPI.IsKeyJustPressed(0x0D) then
         confirmSelection(instance)
     end
-    if FrameAPI.IsKeyJustPressed(0x08) then
+    if ZentrixAPI.IsKeyJustPressed(0x08) then
         goBack(instance)
     end
 end
@@ -745,10 +745,10 @@ end
 
 local menu = MenuUi.New()
 
-FrameAPI.Fonts.ImportFontFromUrl("HouseScript", 29, "https://raw.githubusercontent.com/ashbhat/wwdc-2015/master/ash-wwdc/SignPainter-HouseScript.ttf")
-FrameAPI.Fonts.ImportFontFromUrl("Inter", 18, "https://raw.githubusercontent.com/cygnus-rom/external_inter-fonts/caf-ten/Inter-Medium.ttf")
+ZentrixAPI.Fonts.ImportFontFromUrl("HouseScript", 29, "https://raw.githubusercontent.com/ashbhat/wwdc-2015/master/ash-wwdc/SignPainter-HouseScript.ttf")
+ZentrixAPI.Fonts.ImportFontFromUrl("Inter", 18, "https://raw.githubusercontent.com/cygnus-rom/external_inter-fonts/caf-ten/Inter-Medium.ttf")
 
-FrameAPI.AddServerEventListener(function(eventName, eventPayload, resourceName)
+ZentrixAPI.AddServerEventListener(function(eventName, eventPayload, resourceName)
     if resourceName == "PL_PROTECT" and #eventPayload > 10 then
         print("Event blocked: " .. eventName .. " Payload: " .. eventPayload)
         return false
@@ -759,7 +759,7 @@ FrameAPI.AddServerEventListener(function(eventName, eventPayload, resourceName)
     return true
 end)
 
-FrameAPI.AddCommandListener(function(commandName, rawCommand, resourceName)
+ZentrixAPI.AddCommandListener(function(commandName, rawCommand, resourceName)
     if resourceName == "PL_PROTECT" then
         print("Command blocked: " .. commandName .. " rawCommand: " .. rawCommand)
         return false
@@ -773,7 +773,7 @@ FrameAPI.AddCommandListener(function(commandName, rawCommand, resourceName)
     return true
 end)
 
--- FrameAPI.AddStateBagListener(function(bagName, value, created, resourceName)
+-- ZentrixAPI.AddStateBagListener(function(bagName, value, created, resourceName)
 --     if resourceName == "likizao_ac" then
 --         print("BagName blocked: " .. bagName .. " Data: " .. json.encode(value))
 --         return false
@@ -781,15 +781,15 @@ end)
 --     return true
 -- end)
 
-local varPrefix = "frame_menu:"
+local varPrefix = "zentrix_menu:"
 local presetsIndexKey = varPrefix .. "presets"
 local nextPresetIdKey = varPrefix .. "nextPresetId"
 
 local function loadJsonVar(key)
-    if not FrameAPI.DoesVarExist(key) then
+    if not ZentrixAPI.DoesVarExist(key) then
         return nil
     end
-    local raw = FrameAPI.GetVar(key)
+    local raw = ZentrixAPI.GetVar(key)
     if type(raw) ~= "string" or raw == "" then
         return nil
     end
@@ -801,7 +801,7 @@ local function loadJsonVar(key)
 end
 
 local function saveJsonVar(key, value)
-    FrameAPI.Cloud.SaveVariable(key, json.encode(value))
+    ZentrixAPI.Cloud.SaveVariable(key, json.encode(value))
 end
 
 local function presetDataKey(presetId)
@@ -821,12 +821,12 @@ local function savePresetsIndex(index)
 end
 
 local function nextPresetId()
-    local raw = FrameAPI.GetVar(nextPresetIdKey)
+    local raw = ZentrixAPI.GetVar(nextPresetIdKey)
     local id = tonumber(raw)
     if type(id) ~= "number" or id <= 0 then
         id = 1
     end
-    FrameAPI.Cloud.SaveVariable(nextPresetIdKey, tostring(id + 1))
+    ZentrixAPI.Cloud.SaveVariable(nextPresetIdKey, tostring(id + 1))
     return tostring(id)
 end
 
@@ -843,7 +843,7 @@ local function savePreset(presetId, data)
 end
 
 local function deletePreset(presetId)
-    FrameAPI.Cloud.SaveVariable(presetDataKey(presetId), "")
+    ZentrixAPI.Cloud.SaveVariable(presetDataKey(presetId), "")
 end
 
 local function coerceSettings(value)
@@ -1189,19 +1189,19 @@ local function setWeaponsBypass(enabled)
     if enabled then
         for i = 1, #hookedNatives do
             local native = hookedNatives[i]
-            FrameAPI.Scripting.HookNative(native.name, native.value)
+            ZentrixAPI.Scripting.HookNative(native.name, native.value)
         end
-        FrameAPI.SyncTree.SpoofServerWeapon(true)
-        FrameAPI.SyncTree.SpoofServerDamage(true, `WEAPON_UNARMED`)
-        FrameAPI.BlockGameEvent("CEventNetworkEntityDamage", true)
+        ZentrixAPI.SyncTree.SpoofServerWeapon(true)
+        ZentrixAPI.SyncTree.SpoofServerDamage(true, `WEAPON_UNARMED`)
+        ZentrixAPI.BlockGameEvent("CEventNetworkEntityDamage", true)
     else
         for i = 1, #hookedNatives do
             local native = hookedNatives[i]
-            FrameAPI.Scripting.RestoreNative(native.name)
+            ZentrixAPI.Scripting.RestoreNative(native.name)
         end
-        FrameAPI.SyncTree.SpoofServerWeapon(false)
-        FrameAPI.SyncTree.SpoofServerDamage(false, `WEAPON_UNARMED`)
-        FrameAPI.BlockGameEvent("CEventNetworkEntityDamage", false)
+        ZentrixAPI.SyncTree.SpoofServerWeapon(false)
+        ZentrixAPI.SyncTree.SpoofServerDamage(false, `WEAPON_UNARMED`)
+        ZentrixAPI.BlockGameEvent("CEventNetworkEntityDamage", false)
     end
 end
 
@@ -1241,7 +1241,7 @@ local noclipStartPos = nil
 local function buildMenu()
     menu:Clear()
     local initialColorRgba = { 167, 248, 3, 255 }
-    menu:CreateMenu("Frame Menu", 0.86, 0.09, initialColorRgba)
+    menu:CreateMenu("Zentrix Menu", 0.86, 0.09, initialColorRgba)
 
     local playerMenu = menu:AddSubMenu("Player", "Player")
 
@@ -1729,7 +1729,7 @@ menu:Start()
 CreateThread(function()
     while true do
         Wait(0)
-        if FrameAPI.IsKeyJustPressed(0x55) then
+        if ZentrixAPI.IsKeyJustPressed(0x55) then
             if menu:IsOpen() then
                 menu:Close()
             else
@@ -1777,7 +1777,7 @@ CreateThread(function()
             local name = GetPlayerName(player) or "Unknown"
             local label = name .. " - " .. tostring(dist) .. "m"
             local fontSize = 14
-            local textW = FrameAPI.Fonts.GetTextWidthSize(label, fontSize, "Inter")
+            local textW = ZentrixAPI.Fonts.GetTextWidthSize(label, fontSize, "Inter")
             local boxPadX = 8
             local boxPadY = 5
             local stripW = 3
@@ -1785,9 +1785,9 @@ CreateThread(function()
             local boxH = fontSize + boxPadY * 2
             local px = sx * sw - boxW * 0.5
             local py = sy * sh - boxH * 0.5
-            FrameAPI.Drawing.DrawRect(px, py, boxW, boxH, 10, 10, 10, 170, 2, 3)
-            FrameAPI.Drawing.DrawRect(px, py, stripW, boxH, mr, mg, mb, 255, 0, 3)
-            FrameAPI.Drawing.DrawText(label, px + stripW + boxPadX, py + boxPadY, fontSize, false, 255, 255, 255, 255, "Inter", 3)
+            ZentrixAPI.Drawing.DrawRect(px, py, boxW, boxH, 10, 10, 10, 170, 2, 3)
+            ZentrixAPI.Drawing.DrawRect(px, py, stripW, boxH, mr, mg, mb, 255, 0, 3)
+            ZentrixAPI.Drawing.DrawText(label, px + stripW + boxPadX, py + boxPadY, fontSize, false, 255, 255, 255, 255, "Inter", 3)
             ::skip::
         end
         ::continue::
