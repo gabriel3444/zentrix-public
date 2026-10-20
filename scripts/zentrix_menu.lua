@@ -1240,7 +1240,7 @@ local noclipStartPos = nil
 
 local function buildMenu()
     menu:Clear()
-    local initialColorRgba = { 167, 248, 3, 255 }
+    local initialColorRgba = { 51, 140, 255, 255 }
     menu:CreateMenu("Zentrix Menu", 0.86, 0.09, initialColorRgba)
 
     local playerMenu = menu:AddSubMenu("Player", "Player")
