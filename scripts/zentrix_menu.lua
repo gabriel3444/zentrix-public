@@ -1,6 +1,12 @@
 local MenuUi = {}
 local instanceIndex = 0
 local awesomeSolid = ZentrixAPI.Fonts.CreateFontAwesome()
+local selectedBackgroundColor = { 255, 255, 255, 255 }
+local unselectedBackgroundColor = { 0, 0, 0, 210 }
+local selectedTextColor = { 0, 0, 0, 255 }
+local unselectedTextColor = { 255, 255, 255, 255 }
+local emptyBackgroundColor = { 0, 0, 0, 205 }
+local emptyTextColor = { 255, 255, 255, 255 }
 
 local function resolveLabel(instance, labelValue, tag)
     local valueType = type(labelValue)
@@ -32,10 +38,7 @@ local function resolveSubMenu(instance, item)
     return nil
 end
 
-local function normToPixel(nx, ny, nw, nh)
-    local sw, sh = GetActiveScreenResolution()
-    if not sw or sw <= 0 then sw = 1920 end
-    if not sh or sh <= 0 then sh = 1080 end
+local function normToPixel(nx, ny, nw, nh, sw, sh)
     local px = (nx - nw * 0.5) * sw
     local py = (ny - nh * 0.5) * sh
     local pw = nw * sw
@@ -50,14 +53,20 @@ local function getRes()
     return sw, sh
 end
 
-local function drawTexturedRect(x, y, width, height, bgColor, textColor, text, font, scale, centerText)
-    local px, py, pw, ph = normToPixel(x, y, width, height)
-    local sw, sh = getRes()
+local function drawTexturedRect(x, y, width, height, bgColor, textColor, text, screenWidth, screenHeight, centerText, hasSubMenu)
+    local px, py, pw, ph = normToPixel(x, y, width, height, screenWidth, screenHeight)
     ZentrixAPI.Drawing.DrawRect(px, py, pw, ph, bgColor[1], bgColor[2], bgColor[3], bgColor[4], 0, 1)
     local fontSize = math.max(10, math.floor(ph * 0.45))
-    local textX = centerText and (x * sw) or (px + 8)
+    local textX = centerText and (x * screenWidth) or (px + 8)
     local textY  = py + ph * 0.5 - fontSize * 0.5
     ZentrixAPI.Drawing.DrawText(text, textX, textY, fontSize, centerText or false, textColor[1], textColor[2], textColor[3], textColor[4], "Inter", 2)
+    if hasSubMenu then
+        local arrow = "\xef\x81\x94"
+        local arrowSize = math.max(12, math.floor(ph * 0.42))
+        local arrowWidth = ZentrixAPI.Fonts.GetTextWidthSize(arrow, arrowSize, awesomeSolid)
+        local arrowY = py + ph * 0.5 - arrowSize * 0.5
+        ZentrixAPI.Drawing.DrawText(arrow, px + pw - arrowWidth - 10, arrowY, arrowSize, false, textColor[1], textColor[2], textColor[3], textColor[4], awesomeSolid, 2)
+    end
 end
 
 local function wrapIndex(index, max)
@@ -169,30 +178,79 @@ local function playSound(instance, name)
     PlaySoundFrontend(-1, name, "HUD_FRONTEND_DEFAULT_SOUNDSET", true)
 end
 
-local function drawMenuTitle(instance)
+local function drawMenuTitle(instance, screenWidth, screenHeight)
     local config = instance.menuConfig
-    local sw, sh = getRes()
-    local px, py, pw, ph = normToPixel(config.x, config.y, config.width, config.titleHeight)
+    local px, py, pw, ph = normToPixel(config.x, config.y, config.width, config.titleHeight, screenWidth, screenHeight)
     ZentrixAPI.Drawing.DrawRect(px, py, pw, ph, config.color[1], config.color[2], config.color[3], config.color[4], 0, 1)
-    local cx = config.x * sw
+    local cx = config.x * screenWidth
     local titleSize = math.max(14, math.floor(ph * 0.55))
     local subSize   = math.max(10, math.floor(ph * 0.30))
     if type(config.subTitle) == "string" and config.subTitle ~= "" then
-        ZentrixAPI.Drawing.DrawText(config.title, cx, py + ph * 0.5 - titleSize * 0.5 + 16, titleSize, true, 0, 0, 0, 255, "HouseScript", 2)
+        ZentrixAPI.Drawing.DrawText(config.title, cx, py + ph * 0.5 - titleSize * 0.5 + 16, titleSize, true, 255, 255, 255, 255, "HouseScript", 2)
         ZentrixAPI.Drawing.DrawText(config.subTitle, cx, py + ph * 0.60, subSize, true, 230, 230, 230, 255, "Inter", 2)
     else
-        ZentrixAPI.Drawing.DrawText(config.title, cx, py + ph * 0.5 - titleSize * 0.5 + 16, titleSize, true, 0, 0, 0, 255, "HouseScript", 2)
+        ZentrixAPI.Drawing.DrawText(config.title, cx, py + ph * 0.5 - titleSize * 0.5 + 16, titleSize, true, 255, 255, 255, 255, "HouseScript", 2)
     end
 end
 
-local function drawMainMenu(instance)
+local function easeOut(value)
+    value = math.max(0, math.min(value, 1))
+    return 1 - (1 - value) * (1 - value)
+end
+
+local function drawMenuNotification(instance, screenWidth, screenHeight)
+    if not instance.notificationsEnabled then
+        instance.notification = nil
+        return
+    end
+    local notification = instance.notification
+    if type(notification) ~= "table" then
+        return
+    end
+    local now = GetGameTimer()
+    local elapsed = now - notification.startedAt
+    local remaining = notification.duration - elapsed
+    if remaining <= 0 then
+        instance.notification = nil
+        return
+    end
+
+    local enterProgress = easeOut(elapsed / 220)
+    local exitProgress = easeOut(remaining / 350)
+    local alpha = math.floor(255 * math.min(enterProgress, exitProgress))
+
+    local config = instance.menuConfig
+    local items = getContextItems(instance, getCurrentContext(instance))
+    local visibleRows = math.max(1, math.min(#items, instance.maxVisibleItems))
+    local height = config.itemHeight * 0.9
+    local width = config.width
+    local x = config.x
+    local y = config.y + config.titleHeight * 0.5 + visibleRows * config.itemHeight + height * 0.65
+    local px, py, pw, ph = normToPixel(x, y, width, height, screenWidth, screenHeight)
+    py = py + (1 - enterProgress) * 10
+    local radius = ph * 0.2
+
+    ZentrixAPI.Drawing.DrawRect(px, py, pw, ph, 12, 16, 22, math.floor(235 * alpha / 255), radius, 2)
+    ZentrixAPI.Drawing.DrawRect(px, py, 4, ph, config.color[1], config.color[2], config.color[3], alpha, radius, 2)
+
+    local fontSize = math.max(10, math.floor(ph * 0.42))
+    local text = notification.message
+    local maxTextWidth = pw - 24
+    while fontSize > 10 and ZentrixAPI.Fonts.GetTextWidthSize(text, fontSize, "Inter") > maxTextWidth do
+        fontSize = fontSize - 1
+    end
+    local textY = py + ph * 0.5 - fontSize * 0.5
+    ZentrixAPI.Drawing.DrawText(text, px + 12, textY, fontSize, false, 255, 255, 255, alpha, "Inter", 2)
+end
+
+local function drawMainMenu(instance, screenWidth, screenHeight)
     local ctx = getCurrentContext(instance)
     local items = getContextItems(instance, ctx)
     local config = instance.menuConfig
     local totalItems = #items
     if totalItems == 0 then
         local yPos = config.y + (config.titleHeight / 2) + (config.itemHeight / 2)
-        drawTexturedRect(config.x, yPos, config.width, config.itemHeight, { 0, 0, 0, 205 }, { 255, 255, 255, 255 }, "No options")
+        drawTexturedRect(config.x, yPos, config.width, config.itemHeight, emptyBackgroundColor, emptyTextColor, "No options", screenWidth, screenHeight)
         return
     end
     if type(ctx.index) ~= "number" or ctx.index < 1 or ctx.index > totalItems then
@@ -204,12 +262,12 @@ local function drawMainMenu(instance)
         local item = items[i]
         local yPos = config.y + ((i - firstIndex + 0.5) * config.itemHeight) + config.titleHeight / 2
         local isSelected = i == ctx.index
-        local bgColor = isSelected and { 255, 255, 255, 255 } or { 0, 0, 0, 210 }
-        local textColor = isSelected and { 0, 0, 0, 255 } or { 255, 255, 255, 255 }
+        local bgColor = isSelected and selectedBackgroundColor or unselectedBackgroundColor
+        local textColor = isSelected and selectedTextColor or unselectedTextColor
 
         if type(item) == "table" and item.isCheckbox then
             -- fundo do item
-            local px, py, pw, ph = normToPixel(config.x, yPos, config.width, config.itemHeight)
+            local px, py, pw, ph = normToPixel(config.x, yPos, config.width, config.itemHeight, screenWidth, screenHeight)
             ZentrixAPI.Drawing.DrawRect(px, py, pw, ph, bgColor[1], bgColor[2], bgColor[3], bgColor[4], 0, 1)
 
             local fontSize = math.max(10, math.floor(ph * 0.45))
@@ -221,24 +279,32 @@ local function drawMainMenu(instance)
             -- texto do nome alinhado à esquerda
             ZentrixAPI.Drawing.DrawText(label, px + 8, textY, fontSize, false, textColor[1], textColor[2], textColor[3], textColor[4], "Inter", 2)
 
-            -- ícone toggle à direita
-            local iconSize = math.max(18, math.floor(ph * 0.75))
-            local iconMargin = 8
-            local icon = isChecked and "\xef\x88\x85" or "\xef\x88\x84"
-            local iconW = ZentrixAPI.Fonts.GetTextWidthSize(icon, iconSize, awesomeSolid)
-            local iconX = px + pw - iconW - iconMargin
-            local iconY = py + ph * 0.5 - iconSize * 0.55
+            -- Indicador toggle à direita, com a bolinha sempre branca
+            local iconSize = math.max(16, math.floor(ph * 0.62))
+            local switchHeight = iconSize * 0.72
+            local switchWidth = iconSize * 1.5
+            local switchX = px + pw - switchWidth - 9
+            local switchY = py + (ph - switchHeight) * 0.5
+            local switchColor = isChecked and instance.menuConfig.color or { 120, 120, 120, 255 }
+            ZentrixAPI.Drawing.DrawRect(
+                switchX,
+                switchY,
+                switchWidth,
+                switchHeight,
+                switchColor[1],
+                switchColor[2],
+                switchColor[3],
+                switchColor[4],
+                switchHeight * 0.5,
+                2
+            )
 
-            if isChecked then
-                -- toggle-on: cor Teal do menu
-                local mc = instance.menuConfig.color
-                ZentrixAPI.Drawing.DrawText(icon, iconX, iconY, iconSize, false, mc[1], mc[2], mc[3], 255, awesomeSolid, 2)
-            else
-                -- toggle-off: cinza semitransparente
-                ZentrixAPI.Drawing.DrawText(icon, iconX, iconY, iconSize, false, 160, 160, 160, 200, awesomeSolid, 2)
-            end
+            local knobRadius = switchHeight * 0.36
+            local knobX = isChecked and (switchX + switchWidth - switchHeight * 0.5) or (switchX + switchHeight * 0.5)
+            local knobY = switchY + switchHeight * 0.5
+            ZentrixAPI.Drawing.DrawCircle(knobX, knobY, knobRadius, 12, knobRadius, 255, 255, 255, 255, true, 2)
         elseif type(item) == "table" and item.isSlider then
-            local px, py, pw, ph = normToPixel(config.x, yPos, config.width, config.itemHeight)
+            local px, py, pw, ph = normToPixel(config.x, yPos, config.width, config.itemHeight, screenWidth, screenHeight)
             ZentrixAPI.Drawing.DrawRect(px, py, pw, ph, bgColor[1], bgColor[2], bgColor[3], bgColor[4], 0, 1)
 
             local fontSize  = math.max(10, math.floor(ph * 0.42))
@@ -286,13 +352,10 @@ local function drawMainMenu(instance)
             else
                 text = tostring(item)
             end
-            drawTexturedRect(config.x, yPos, config.width, config.itemHeight, bgColor, textColor, text)
+            local hasSubMenu = type(item) == "table" and item.subMenu ~= nil
+            drawTexturedRect(config.x, yPos, config.width, config.itemHeight, bgColor, textColor, text, screenWidth, screenHeight, false, hasSubMenu)
         end
     end
-end
-
-local function drawSubMenu(instance)
-    drawMainMenu(instance)
 end
 
 local function navigateMenu(instance, direction)
@@ -335,7 +398,13 @@ local function confirmSelection(instance)
             pushSubMenuContext(instance, item, title)
         end
     elseif type(item.onSelect) == "function" then
+        local label = resolveLabel(instance, item.name, "notificationLabel:" .. tostring(ctx.index))
         item.onSelect()
+        instance.notification = {
+            message = "Selecionado: " .. label,
+            startedAt = GetGameTimer(),
+            duration = 5000
+        }
     end
     playSound(instance, "SELECT")
 end
@@ -395,8 +464,10 @@ local function drawMenu(instance)
     if not instance.isMenuOpen then
         return
     end
-    drawMenuTitle(instance)
-    drawMainMenu(instance)
+    local screenWidth, screenHeight = getRes()
+    drawMenuTitle(instance, screenWidth, screenHeight)
+    drawMainMenu(instance, screenWidth, screenHeight)
+    drawMenuNotification(instance, screenWidth, screenHeight)
 end
 
 local function addListItem(instance, targetItems, name, items, defaultIndex, onChange)
@@ -499,6 +570,7 @@ function MenuUi.New()
     instance.horizontalNavRepeatMs = 150
     instance.openKey = nil
     instance.isStarted = false
+    instance.notificationsEnabled = true
     instance.menuItems = {}
     instance.menuConfig = {
         title = "Menu",
@@ -546,8 +618,28 @@ function instanceMethods:CreateMenu(title, subTitle, x, y, color)
     return self
 end
 
+local function addButtonItem(targetItems, name, callback)
+    table.insert(targetItems, { name = name, onSelect = callback })
+end
+
+local function addDynamicButtonItem(targetItems, nameFunc, callback)
+    table.insert(targetItems, { name = nameFunc, onSelect = callback })
+end
+
+local function addSubMenuItem(targetItems, name, subMenuTitle)
+    local subMenuItems = {}
+    table.insert(targetItems, {
+        name = name,
+        subMenuTitle = subMenuTitle ~= nil and subMenuTitle or name,
+        subMenu = function()
+            return subMenuItems
+        end
+    })
+    return subMenuItems
+end
+
 function instanceMethods:AddButton(name, callback)
-    table.insert(self.menuItems, { name = name, onSelect = callback })
+    addButtonItem(self.menuItems, name, callback)
     return self
 end
 
@@ -567,97 +659,53 @@ function instanceMethods:AddCheckbox(name, defaultState, onChange)
 end
 
 function instanceMethods:AddDynamicButton(nameFunc, callback)
-    table.insert(self.menuItems, { name = nameFunc, onSelect = callback })
+    addDynamicButtonItem(self.menuItems, nameFunc, callback)
     return self
 end
 
-function instanceMethods:AddSubMenu(name, subMenuTitle)
-    local subMenuItems = {}
-    local subMenu = {
-        name = name,
-        subMenuTitle = subMenuTitle ~= nil and subMenuTitle or name,
-        subMenu = function()
-            return subMenuItems
-        end
-    }
-    table.insert(self.menuItems, subMenu)
-    local instance = self
+local function createSubMenuBuilder(instance, targetItems, parentBuilder)
     local builder = {}
-    local function createSubMenuBuilder(targetItems, parentBuilder)
-        local b = {}
-        function b.AddButton(buttonName, callback)
-            table.insert(targetItems, { name = buttonName, onSelect = callback })
-            return b
-        end
-        function b.AddList(listName, items, defaultIndex, onChange)
-            addListItem(instance, targetItems, listName, items, defaultIndex, onChange)
-            return b
-        end
-        function b.AddSlider(sliderName, minValue, maxValue, step, defaultValue, onChange)
-            addSliderItem(instance, targetItems, sliderName, minValue, maxValue, step, defaultValue, onChange)
-            return b
-        end
-        function b.AddCheckbox(checkboxName, defaultState, onChange)
-            addCheckboxItem(instance, targetItems, checkboxName, defaultState, onChange)
-            return b
-        end
-        function b.AddDynamicButton(nameFunc, callback)
-            table.insert(targetItems, { name = nameFunc, onSelect = callback })
-            return b
-        end
-        function b.AddSubMenu(childName, childSubMenuTitle)
-            local childItems = {}
-            local childMenu = {
-                name = childName,
-                subMenuTitle = childSubMenuTitle ~= nil and childSubMenuTitle or childName,
-                subMenu = function()
-                    return childItems
-                end
-            }
-            table.insert(targetItems, childMenu)
-            return createSubMenuBuilder(childItems, b)
-        end
-        function b.Back()
-            return parentBuilder
-        end
-        return b
-    end
-    function builder.AddButton(buttonName, callback)
-        table.insert(subMenuItems, { name = buttonName, onSelect = callback })
+
+    function builder.AddButton(name, callback)
+        addButtonItem(targetItems, name, callback)
         return builder
     end
-    function builder.AddList(listName, items, defaultIndex, onChange)
-        addListItem(instance, subMenuItems, listName, items, defaultIndex, onChange)
+
+    function builder.AddList(name, items, defaultIndex, onChange)
+        addListItem(instance, targetItems, name, items, defaultIndex, onChange)
         return builder
     end
-    function builder.AddSlider(sliderName, minValue, maxValue, step, defaultValue, onChange)
-        addSliderItem(instance, subMenuItems, sliderName, minValue, maxValue, step, defaultValue, onChange)
+
+    function builder.AddSlider(name, minValue, maxValue, step, defaultValue, onChange)
+        addSliderItem(instance, targetItems, name, minValue, maxValue, step, defaultValue, onChange)
         return builder
     end
-    function builder.AddCheckbox(checkboxName, defaultState, onChange)
-        addCheckboxItem(instance, subMenuItems, checkboxName, defaultState, onChange)
+
+    function builder.AddCheckbox(name, defaultState, onChange)
+        addCheckboxItem(instance, targetItems, name, defaultState, onChange)
         return builder
     end
+
     function builder.AddDynamicButton(nameFunc, callback)
-        table.insert(subMenuItems, { name = nameFunc, onSelect = callback })
+        addDynamicButtonItem(targetItems, nameFunc, callback)
         return builder
     end
-    function builder.AddSubMenu(childName, childSubMenuTitle)
-        local childItems = {}
-        local childMenu = {
-            name = childName,
-            subMenuTitle = childSubMenuTitle ~= nil and childSubMenuTitle or childName,
-            subMenu = function()
-                return childItems
-            end
-        }
-        table.insert(subMenuItems, childMenu)
-        return createSubMenuBuilder(childItems, builder)
+
+    function builder.AddSubMenu(name, subMenuTitle)
+        local childItems = addSubMenuItem(targetItems, name, subMenuTitle)
+        return createSubMenuBuilder(instance, childItems, builder)
     end
+
     function builder.Back()
-        return instance
+        return parentBuilder
     end
+
     return builder
+end
+
+function instanceMethods:AddSubMenu(name, subMenuTitle)
+    local subMenuItems = addSubMenuItem(self.menuItems, name, subMenuTitle)
+    return createSubMenuBuilder(self, subMenuItems, self)
 end
 
 function instanceMethods:SetTitle(title)
@@ -854,8 +902,13 @@ local function coerceSettings(value)
     if type(value.soundEnabled) == "boolean" then
         soundEnabled = value.soundEnabled
     end
+    local notificationsEnabled = true
+    if type(value.notificationsEnabled) == "boolean" then
+        notificationsEnabled = value.notificationsEnabled
+    end
     return {
-        soundEnabled = soundEnabled
+        soundEnabled = soundEnabled,
+        notificationsEnabled = notificationsEnabled
     }
 end
 
@@ -875,12 +928,14 @@ end
 
 local function cloneSettings(source)
     return {
-        soundEnabled = source.soundEnabled
+        soundEnabled = source.soundEnabled,
+        notificationsEnabled = source.notificationsEnabled
     }
 end
 
 local defaultSettings = {
-    soundEnabled = true
+    soundEnabled = true,
+    notificationsEnabled = true
 }
 
 local selectedPresetIndex = 1
@@ -889,7 +944,8 @@ local settings = cloneSettings(defaultSettings)
 
 local function applySettings()
     menu:SetSoundEnabled(settings.soundEnabled)
-    menu:SetColor(167, 248, 3, 255)
+    menu.notificationsEnabled = settings.notificationsEnabled
+    menu:SetColor(51, 140, 255, 255)
 end
 
 local function findPresetByName(presets, name)
@@ -1226,323 +1282,10 @@ CreateThread(function()
     end
 end)
 
-local infiniteAmmo = false
-local noclip = false
-local espBox = false
-local espDistance = 150
-local espPosition = 1
-local cam = nil
-local camPos = vector3(0.0, 0.0, 0.0)
-local camRot = vector3(0.0, 0.0, 0.0)
-local moveSpeed = 1.5
-local fastSpeed = 5.0
-local noclipStartPos = nil
-
 local function buildMenu()
     menu:Clear()
     local initialColorRgba = { 51, 140, 255, 255 }
     menu:CreateMenu("Zentrix Menu", 0.86, 0.09, initialColorRgba)
-
-    local playerMenu = menu:AddSubMenu("Player", "Player")
-
-    playerMenu.AddCheckbox("Noclip", noclip, function(v)
-        noclip = v
-
-        local ped = PlayerPedId()
-        local entity = ped
-
-        if IsPedInAnyVehicle(ped, false) then
-            entity = GetVehiclePedIsIn(ped, false)
-        end
-
-        if noclip then
-            noclipStartPos = GetEntityCoords(entity)
-
-            camPos = vector3(
-                noclipStartPos.x,
-                noclipStartPos.y,
-                noclipStartPos.z
-            )
-
-            camRot = GetGameplayCamRot(2)
-
-            cam = CreateCam(
-                "DEFAULT_SCRIPTED_CAMERA",
-                true
-            )
-
-            SetCamCoord(
-                cam,
-                camPos.x,
-                camPos.y,
-                camPos.z
-            )
-
-            SetCamRot(
-                cam,
-                camRot.x,
-                camRot.y,
-                camRot.z,
-                2
-            )
-
-            RenderScriptCams(
-                true,
-                true,
-                500,
-                true,
-                true
-            )
-
-            FreezeEntityPosition(
-                entity,
-                true
-            )
-
-            local currentCam = cam
-            local currentEntity = entity
-            local startPos = vector3(
-                noclipStartPos.x,
-                noclipStartPos.y,
-                noclipStartPos.z
-            )
-
-            CreateThread(function()
-                while noclip and currentCam do
-                    Wait(0)
-
-                    DisableAllControlActions(0)
-
-                    --------------------------------------------------
-                    -- VELOCIDADE
-                    --------------------------------------------------
-
-                    local speed
-
-                    if IsDisabledControlPressed(0, 21) then
-                        speed = fastSpeed
-                    else
-                        speed = moveSpeed
-                    end
-
-                    --------------------------------------------------
-                    -- MOUSE
-                    --------------------------------------------------
-
-                    local mouseX = GetDisabledControlNormal(0, 220)
-                    local mouseY = GetDisabledControlNormal(0, 221)
-
-                    local rotation = GetCamRot(
-                        currentCam,
-                        2
-                    )
-
-                    local pitch = math.max(
-                        math.min(
-                            rotation.x - mouseY * 6.0,
-                            89.0
-                        ),
-                        -89.0
-                    )
-
-                    local yaw = rotation.z - mouseX * 6.0
-
-                    camRot = vector3(
-                        pitch,
-                        0.0,
-                        yaw
-                    )
-
-                    SetCamRot(
-                        currentCam,
-                        camRot.x,
-                        camRot.y,
-                        camRot.z,
-                        2
-                    )
-
-                    --------------------------------------------------
-                    -- DIREÇÃO
-                    --------------------------------------------------
-
-                    local right, forward = GetCamMatrix(
-                        currentCam
-                    )
-
-                    local x = camPos.x
-                    local y = camPos.y
-                    local z = camPos.z
-
-                    --------------------------------------------------
-                    -- W
-                    --------------------------------------------------
-
-                    if IsDisabledControlPressed(0, 32) then
-                        x = x + forward.x * speed
-                        y = y + forward.y * speed
-                        z = z + forward.z * speed
-                    end
-
-                    --------------------------------------------------
-                    -- S
-                    --------------------------------------------------
-
-                    if IsDisabledControlPressed(0, 33) then
-                        x = x - forward.x * speed
-                        y = y - forward.y * speed
-                        z = z - forward.z * speed
-                    end
-
-                    --------------------------------------------------
-                    -- A
-                    --------------------------------------------------
-
-                    if IsDisabledControlPressed(0, 34) then
-                        x = x - right.x * speed
-                        y = y - right.y * speed
-                        z = z - right.z * speed
-                    end
-
-                    --------------------------------------------------
-                    -- D
-                    --------------------------------------------------
-
-                    if IsDisabledControlPressed(0, 35) then
-                        x = x + right.x * speed
-                        y = y + right.y * speed
-                        z = z + right.z * speed
-                    end
-
-                    --------------------------------------------------
-                    -- NOVA POSIÇÃO
-                    --------------------------------------------------
-
-                    camPos = vector3(
-                        x,
-                        y,
-                        z
-                    )
-
-                    SetCamCoord(
-                        currentCam,
-                        x,
-                        y,
-                        z
-                    )
-
-                    --------------------------------------------------
-                    -- DISTÂNCIA DO PONTO INICIAL
-                    --------------------------------------------------
-
-                    local dx = x - startPos.x
-                    local dy = y - startPos.y
-                    local dz = z - startPos.z
-
-                    local distance = math.sqrt(
-                        dx * dx +
-                        dy * dy +
-                        dz * dz
-                    )
-
-                    --------------------------------------------------
-                    -- STREAMING
-                    --------------------------------------------------
-
-                    if distance >= 500.0 then
-                        SetFocusPosAndVel(
-                            x,
-                            y,
-                            z,
-                            0.0,
-                            0.0,
-                            0.0
-                        )
-
-                        RequestCollisionAtCoord(
-                            x,
-                            y,
-                            z
-                        )
-                    else
-                        ClearFocus()
-                    end
-                end
-            end)
-        else
-            --------------------------------------------------
-            -- DESATIVAR
-            --------------------------------------------------
-
-            -- Primeiro para o thread
-            noclip = false
-
-            -- Guarda a posição antes de destruir a câmera
-            local finalPos = vector3(
-                camPos.x,
-                camPos.y,
-                camPos.z
-            )
-
-            --------------------------------------------------
-            -- STREAMING
-            --------------------------------------------------
-
-            -- ClearFocus()
-
-            --------------------------------------------------
-            -- CÂMERA
-            --------------------------------------------------
-
-            RenderScriptCams(
-                false,
-                true,
-                500,
-                true,
-                true
-            )
-
-            if cam then
-                DestroyCam(
-                    cam,
-                    true
-                )
-
-                cam = nil
-            end
-
-            --------------------------------------------------
-            -- TELEPORTA ENTIDADE
-            --------------------------------------------------
-
-            SetEntityCoordsNoOffset(
-                entity,
-                finalPos.x,
-                finalPos.y,
-                finalPos.z,
-                false,
-                false,
-                false
-            )
-
-            FreezeEntityPosition(
-                entity,
-                false
-            )
-
-            --------------------------------------------------
-            -- LIMPA
-            --------------------------------------------------
-
-            noclipStartPos = nil
-        end
-    end)
-
-    playerMenu.AddSlider("Noclip Speed", 1, 20, 1, math.floor(moveSpeed), function(v)
-        moveSpeed = v
-        fastSpeed = v * 3.0
-    end)
-
-    playerMenu.Back()
 
     table.insert(menu.menuItems, {
         name = "Online Players",
@@ -1585,11 +1328,6 @@ local function buildMenu()
         end
     end)
 
-    weaponsMenu.AddCheckbox("Infinite Ammo", infiniteAmmo, function(v)
-        infiniteAmmo = v
-        SetPedInfiniteAmmoClip(PlayerPedId(), infiniteAmmo)
-    end)
-
     weaponsMenu.AddButton("Remove Current Weapon", function()
         local ped = PlayerPedId()
         local hasWeapon, weaponHash = GetCurrentPedWeapon(ped, true)
@@ -1609,34 +1347,24 @@ local function buildMenu()
 
     vehiclesMenu.Back()
 
-    local visualsMenu = menu:AddSubMenu("Visuals", "Visuals")
-
-    visualsMenu.AddCheckbox("ESP", espBox, function(v)
-        espBox = v
-    end)
-
-    visualsMenu.AddSlider("ESP Distance", 50, 500, 25, espDistance, function(v)
-        espDistance = v
-    end)
-
-    visualsMenu.AddList("ESP Position", { "Above Head", "Below Feet" }, espPosition, function(index)
-        espPosition = index
-    end)
-
-    visualsMenu.Back()
-
     local configMenu = menu:AddSubMenu("Settings", "Settings")
 
-    local sistemaMenu = configMenu.AddSubMenu("System", "System")
-
-    sistemaMenu.AddCheckbox("Navigation Sounds", settings.soundEnabled, function(enabled)
+    configMenu.AddCheckbox("Navigation Sounds", settings.soundEnabled, function(enabled)
         settings.soundEnabled = enabled
         menu:SetSoundEnabled(enabled)
     end)
 
-    sistemaMenu.Back()
+    configMenu.AddCheckbox("Notifications", settings.notificationsEnabled, function(enabled)
+        settings.notificationsEnabled = enabled
+        menu.notificationsEnabled = enabled
+        if not enabled then
+            menu.notification = nil
+        end
+    end)
 
-    local cloudMenu = configMenu.AddSubMenu("Cloud", "Cloud")
+    configMenu.Back()
+
+    local cloudMenu = menu:AddSubMenu("Cloud", "Cloud")
 
     local presets = loadPresetsIndex()
     local presetNames = {}
@@ -1718,7 +1446,6 @@ local function buildMenu()
     end)
 
     cloudMenu.Back()
-    configMenu.Back()
 end
 
 buildMenu()
@@ -1736,60 +1463,5 @@ CreateThread(function()
                 menu:Open()
             end
         end
-    end
-end)
-
-CreateThread(function()
-    while true do
-        Wait(0)
-        if not espBox then 
-            goto continue
-        end
-        local myPed = PlayerPedId()
-        local myCoords = GetEntityCoords(myPed)
-        local sw, sh = GetActiveScreenResolution()
-        if not sw or sw <= 0 then
-            sw = 1920
-        end
-        if not sh or sh <= 0 then
-            sh = 1080
-        end
-        local mc = menu.menuConfig.color
-        local mr, mg, mb = mc[1], mc[2], mc[3]
-        for _, player in ipairs(GetActivePlayers()) do
-            if player == PlayerId() then
-                goto skip
-            end
-            local ped = GetPlayerPed(player)
-            if not DoesEntityExist(ped) then
-                goto skip
-            end
-            local pedCoords = GetEntityCoords(ped)
-            local espZ = espPosition == 2 and (pedCoords.z - 1.1) or (pedCoords.z + 0.9)
-            local onScreen, sx, sy = GetScreenCoordFromWorldCoord(pedCoords.x, pedCoords.y, espZ)
-            if not onScreen then
-                goto skip
-            end
-            local dist = math.floor(Vdist(myCoords.x, myCoords.y, myCoords.z, pedCoords.x, pedCoords.y, pedCoords.z))
-            if dist > espDistance then
-                goto skip
-            end
-            local name = GetPlayerName(player) or "Unknown"
-            local label = name .. " - " .. tostring(dist) .. "m"
-            local fontSize = 14
-            local textW = ZentrixAPI.Fonts.GetTextWidthSize(label, fontSize, "Inter")
-            local boxPadX = 8
-            local boxPadY = 5
-            local stripW = 3
-            local boxW = textW + boxPadX * 2 + stripW
-            local boxH = fontSize + boxPadY * 2
-            local px = sx * sw - boxW * 0.5
-            local py = sy * sh - boxH * 0.5
-            ZentrixAPI.Drawing.DrawRect(px, py, boxW, boxH, 10, 10, 10, 170, 2, 3)
-            ZentrixAPI.Drawing.DrawRect(px, py, stripW, boxH, mr, mg, mb, 255, 0, 3)
-            ZentrixAPI.Drawing.DrawText(label, px + stripW + boxPadX, py + boxPadY, fontSize, false, 255, 255, 255, 255, "Inter", 3)
-            ::skip::
-        end
-        ::continue::
     end
 end)
